@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mikro Map + Weather</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root { --bg:#fff; --fg:#111; --muted:#555; --border:#ddd; --soft:#f7f7f7; --danger:#b00020; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; max-width: 980px; margin: 40px auto; padding: 0 16px; color: var(--fg); background: var(--bg); }
+    h1 { margin: 0 0 12px; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 900px) { .grid { grid-template-columns: 1.2fr 0.8fr; } }
+    .card { border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    input, button { padding: 10px 12px; border-radius: 10px; border: 1px solid #ccc; font-size: 16px; }
+    button { cursor: pointer; }
+    small { color: var(--muted); }
+    pre { background: var(--soft); padding: 12px; border-radius: 10px; overflow: auto; }
+    #map { height: 520px; border-radius: 12px; border: 1px solid var(--border); }
+    .badge { display:inline-block; padding:4px 10px; border-radius: 999px; background: var(--soft); border:1px solid var(--border); font-size: 13px; }
+    .err { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <h1>Harita Sitesi (2 Mikro API, Stateless)</h1>
+  <p><small>Şehir ara veya haritaya tıkla → Konumu bul (places-api) → Hava durumu getir (weather-api)</small></p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row">
+        <input id="q" placeholder="Şehir ara (örn: Istanbul, Ankara, Izmir)" size="34"/>
+        <button onclick="searchPlace()">Ara</button>
+        <span class="badge">places-api → /api/places/search</span>
+        <span class="badge">weather-api → /api/weather/current</span>
+      </div>
+
+      <p id="status"><small>Haritaya tıklayabilir veya arama yapabilirsin.</small></p>
+      <div id="map"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Seçilen Nokta</h3>
+      <p id="picked"><small>Henüz seçim yok.</small></p>
+
+      <h3>Güncel Hava Durumu</h3>
+      <pre id="out">{}</pre>
+
+      <p><small>
+        Sağlık kontrolü: <code>/api/places/health</code>, <code>/api/weather/health</code>
+      </small></p>
+    </div>
+  </div>
+
+<script>
+  const statusEl = document.getElementById("status");
+  const pickedEl = document.getElementById("picked");
+  const outEl = document.getElementById("out");
+
+  const map = L.map('map').setView([41.0082, 28.9784], 6); // TR
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+
+  let marker = null;
+
+  function setMarker(lat, lon, label) {
+    if (marker) marker.remove();
+    marker = L.marker([lat, lon]).addTo(map);
+    marker.bindPopup(label || `${lat.toFixed(4)}, ${lon.toFixed(4)}`).openPopup();
+  }
+
+  async function fetchJSON(url) {
+    const res = await fetch(url);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+    return data;
+  }
+
+  async function loadWeather(lat, lon, name) {
+    statusEl.innerHTML = "<small>Hava durumu yükleniyor...</small>";
+    outEl.textContent = "{}";
+    pickedEl.innerHTML = `<small><b>${name || "Seçilen nokta"}</b><br/>Lat: ${lat}, Lon: ${lon}</small>`;
+
+    try {
+      const w = await fetchJSON(`/api/weather/current?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
+      statusEl.innerHTML = `<small><b>${name || "Nokta"}</b> için güncel hava durumu alındı.</small>`;
+      outEl.textContent = JSON.stringify(w, null, 2);
+    } catch (e) {
+      statusEl.innerHTML = `<small class="err">Hata: ${e.message}</small>`;
+    }
+  }
+
+  map.on('click', async (e) => {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+    setMarker(lat, lon, "Seçilen nokta");
+    await loadWeather(lat, lon, "Harita tıklaması");
+  });
+
+  async function searchPlace() {
+    const q = document.getElementById("q").value.trim();
+    if (!q) return;
+
+    statusEl.innerHTML = "<small>Konum aranıyor...</small>";
+
+    try {
+      const r = await fetchJSON(`/api/places/search?name=${encodeURIComponent(q)}`);
+      // ilk sonucu al
+      const top = r.results?.[0];
+      if (!top) throw new Error("Sonuç bulunamadı.");
+
+      const lat = top.latitude;
+      const lon = top.longitude;
+      const label = `${top.name}${top.admin1 ? ", " + top.admin1 : ""}${top.country ? ", " + top.country : ""}`;
+
+      map.setView([lat, lon], 10);
+      setMarker(lat, lon, label);
+      await loadWeather(lat, lon, label);
+    } catch (e) {
+      statusEl.innerHTML = `<small class="err">Hata: ${e.message}</small>`;
+    }
+  }
+</script>
+</body>
+</html>
