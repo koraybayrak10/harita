@@ -8,21 +8,21 @@ app = FastAPI()
 # API'LER (ÖNCE!)
 # -----------------
 
-@app.get("/api/health")
-def health():
-    return {"status": "ok"}
+@app.get("/api/weather/current")
+def current_weather(lat: float, lon: float):
+    temp = round(20 + (lat % 10), 1)
+    wind = round(5 + (lon % 8), 1)
 
-@app.get("/api/places/search")
-def search_place(name: str = Query(...)):
     return {
-        "results": [
-            {
-                "name": name.title(),
-                "latitude": 41.0082,
-                "longitude": 28.9784
-            }
-        ]
+        "location": {"lat": lat, "lon": lon},
+        "weather": {
+            "temperature": temp,
+            "condition": "Değişken",
+            "wind_kmh": wind,
+            "humidity": int(40 + (lat % 30))
+        }
     }
+
 
 @app.get("/api/weather/current")
 def current_weather(lat: float, lon: float):
