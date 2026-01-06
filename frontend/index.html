@@ -157,7 +157,52 @@ pre{
   border:1px solid var(--line);
   font-size:13px;
 }
+/* WEATHER CARD */
+.weatherCard{
+  display:grid;
+  gap:14px;
+  padding:18px;
+  border-radius:18px;
+  background: linear-gradient(
+    180deg,
+    rgba(124,58,237,.22),
+    rgba(40,10,70,.55)
+  );
+  border:1px solid rgba(124,58,237,.35);
+}
 
+.weatherTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.weatherTemp{
+  font-size:42px;
+  font-weight:800;
+}
+
+.weatherCond{
+  padding:6px 12px;
+  border-radius:999px;
+  background: rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.22);
+  font-size:13px;
+}
+
+.weatherGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+
+.weatherMini{
+  padding:12px;
+  border-radius:14px;
+  background: rgba(0,0,0,.25);
+  border:1px solid rgba(255,255,255,.14);
+  font-size:14px;
+}
 
 </style>
 </head>
@@ -229,14 +274,33 @@ async function searchPlace(){
   loadWeather(p.latitude,p.longitude,p.name);
 }
 
-async function loadWeather(lat,lon,name){
-  status.innerText="Hava durumu alınıyor...";
-  const r=await fetch(`/api/weather/current?lat=${lat}&lon=${lon}`);
-  const d=await r.json();
-  picked.innerHTML=`<small><b>${name}</b><br>Lat:${lat}, Lon:${lon}</small>`;
-  out.textContent=JSON.stringify(d,null,2);
-  status.innerText="Güncel veri alındı";
+async function loadWeather(lat, lon, name){
+  status.innerText = "Hava durumu alınıyor...";
+  const r = await fetch(`/api/weather/current?lat=${lat}&lon=${lon}`);
+  const d = await r.json();
+
+  picked.innerHTML = `
+    <small><b>${name}</b><br>
+    Lat: ${lat.toFixed(3)}, Lon: ${lon.toFixed(3)}</small>
+  `;
+
+  out.innerHTML = `
+    <div class="weatherCard">
+      <div class="weatherTop">
+        <div class="weatherTemp">${d.weather.temperature}°C</div>
+        <div class="weatherCond">${d.weather.condition}</div>
+      </div>
+
+      <div class="weatherGrid">
+        <div class="weatherMini">💨 Rüzgar: <b>${d.weather.wind_kmh} km/h</b></div>
+        <div class="weatherMini">💧 Nem: <b>%${d.weather.humidity}</b></div>
+      </div>
+    </div>
+  `;
+
+  status.innerText = "Güncel veri alındı";
 }
+
 
 map.on("click",e=>{
   setMarker(e.latlng.lat,e.latlng.lng,"Seçilen Nokta");
